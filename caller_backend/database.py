@@ -1,0 +1,82 @@
+# caller_backend/database.py
+import os
+import urllib.parse
+import logging
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+logger = logging.getLogger("unified_backend.database")
+
+Base = declarative_base()
+
+# ============================================
+# 🔐 DATABASE CONFIGURATION
+# ============================================
+TAILSCALE_IP = os.getenv("DB_HOST", "100.112.49.39")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_NAME = os.getenv("DB_NAME", "aepttas_xdr")
+DB_SCHEMA = os.getenv("DB_SCHEMA", "apt")
+DB_USER = os.getenv("DB_USER", "apt_callmgmt_app")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "Call@intern_aepttas")
+
+encoded_password = urllib.parse.quote_plus(DB_PASSWORD)
+
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    f"postgresql+psycopg2://{DB_USER}:{encoded_password}@{TAILSCALE_IP}:{DB_PORT}/{DB_NAME}"
+)
+
+# Connect args with timeout to prevent hanging if VPN / remote DB is temporarily offline
+connect_args = {
+    "connect_timeout": 3,
+    "options": f"-c search_path={DB_SCHEMA},public"
+}
+
+try:
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        echo=False,
+        pool_size=10,
+        max_overflow=20,
+        connect_args=connect_args
+    )
+except Exception as e:
+    logger.warning(f"Initial engine setup warning: {e}")
+    engine = create_engine(DATABASE_URL)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def get_db():
+    """FastAPI dependency for database sessions"""
+    db = SessionLocal()
+    try:
+        yield db
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        db.close()
+
+import time
+
+_db_status = None
+_last_check = 0.0
+
+def is_db_online() -> bool:
+    """Cached connectivity check with 15s TTL to prevent cascading network timeouts"""
+    global _db_status, _last_check
+    now = time.time()
+    if _db_status is not None and (now - _last_check) < 15:
+        return _db_status
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        _db_status = True
+    except Exception:
+        _db_status = False
+    _last_check = now
+    return _db_status
+
+def check_db_connection() -> bool:
+    return is_db_online()
