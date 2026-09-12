@@ -27,13 +27,16 @@ const expoIp = getHostFromExpo();
 const DEFAULT_HOST = expoIp || (Platform.OS === 'android' ? '10.0.2.2' : '127.0.0.1');
 const DEFAULT_PORT = '5000';
 
+const CLOUD_BACKEND_URL = 'https://for-testing-deployment-1.onrender.com';
+
 let customBaseUrl: string | null = null;
 
 export const getUnifiedBaseUrl = (): string => {
   if (customBaseUrl) {
     return customBaseUrl;
   }
-  return `http://${DEFAULT_HOST}:${DEFAULT_PORT}`;
+  // Production / Deployed Cloud Backend
+  return CLOUD_BACKEND_URL;
 };
 
 export const getParentalBaseUrl = (): string => {
