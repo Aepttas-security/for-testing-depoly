@@ -344,3 +344,29 @@ def verify_parent_pin(payload: Dict[str, Any]):
     if pin == "1234" or len(pin) == 4:
         return {"status": "success", "valid": True}
     return {"status": "error", "valid": False}
+
+@router.post("/api/auth/register")
+@router.post("/api/parental/auth/register")
+def register_auth(payload: Dict[str, Any]):
+    return {
+        "status": "success",
+        "user_id": 1,
+        "message": "Account registered successfully"
+    }
+
+@router.post("/api/auth/login")
+@router.post("/api/parental/auth/login")
+def login_auth(payload: Dict[str, Any]):
+    email = payload.get("email", "user@gmail.com")
+    name = email.split("@")[0]
+    return {
+        "status": "success",
+        "user_id": 1,
+        "name": name,
+        "parent_name": name,
+        "email": email,
+        "token_type": "bearer",
+        "access_token": "jwt-aepttas-unified-token-1",
+        "message": "Login successful"
+    }
+
